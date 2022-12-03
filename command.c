@@ -117,8 +117,11 @@ noreturn void external_command(char **argv) {
     for (int i = 0; i < n;) {
       int len = strcspn(argv[0] + i, ":");
       char *c = strndup(argv[0] + i, len);
+      strapp(&c, "/");
+      strapp(&c, argv[0]);
       (void)execve(c, argv, environ);
       free(c);
+      i += len;
     }
 #endif /* !STUDENT */
   } else {
