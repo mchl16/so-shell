@@ -119,7 +119,7 @@ static int jobstate(int j, int *statusp) {
   /* TODO: Handle case where job has finished. */
 #ifdef STUDENT
   (void)exitcode;
-  if (state == FINISHED) { 
+  if (state == FINISHED) {
     *statusp = exitcode(job);
     deljob(job);
   }
