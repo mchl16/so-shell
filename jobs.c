@@ -29,7 +29,7 @@ static void sigchld_handler(int sig) {
 #ifdef STUDENT
   (void)status;
   (void)pid;
-  //int id = waitpid(-1, NULL, WNOHANG);
+  // int id = waitpid(-1, NULL, WNOHANG);
 #endif /* !STUDENT */
   errno = old_errno;
 }
@@ -119,7 +119,7 @@ static int jobstate(int j, int *statusp) {
   /* TODO: Handle case where job has finished. */
 #ifdef STUDENT
   (void)exitcode;
-  if(state == FINISHED) { 
+  if (state == FINISHED) { 
     *statusp = exitcode(job);
     deljob(job);
   }
@@ -148,7 +148,7 @@ bool resumejob(int j, int bg, sigset_t *mask) {
     /* TODO: Continue stopped job. Possibly move job to foreground slot. */
 #ifdef STUDENT
   (void)movejob;
-  kill(jobs[j].pgid,SIGCONT);
+  kill(jobs[j].pgid, SIGCONT);
 
 #endif /* !STUDENT */
 
