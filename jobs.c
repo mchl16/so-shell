@@ -118,7 +118,7 @@ static int jobstate(int j, int *statusp) {
 
   /* TODO: Handle case where job has finished. */
 #ifdef STUDENT
-  (void)exitcode;
+  // (void)exitcode;
   if (state == FINISHED) {
     *statusp = exitcode(job);
     deljob(job);
@@ -233,6 +233,7 @@ void shutdownjobs(void) {
 
   /* TODO: Kill remaining jobs and wait for them to finish. */
 #ifdef STUDENT
+
 #endif /* !STUDENT */
 
   watchjobs(FINISHED);

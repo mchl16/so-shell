@@ -31,8 +31,42 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
   for (int i = 0; i < ntokens; i++) {
     /* TODO: Handle tokens and open files as requested. */
 #ifdef STUDENT
-    (void)mode;
-    (void)MaybeClose;
+    bool redirs = false;
+
+    if (token[i] == T_INPUT) {
+      redirs = true;
+      mode = T_INPUT;
+    } else if (token[i] == T_OUTPUT) {
+      redirs = true;
+      mode = T_OUTPUT;
+    } else if (mode != NULL) {
+      int fd;
+      if (mode == T_INPUT) {
+        fd = open(token[i], O_RDONLY);
+        if (fd < 0)
+          app_error("Failed to open a file: file %s, line %d", __FILE__,
+                    __LINE__);
+
+        dup2(fd, *inputp); // 0 zostanie wczesniej zamkniety, bo tak dziala dup2
+      } else if (mode == T_OUTPUT) {
+        fd = open(token[i], O_WRONLY | O_CREAT,
+                  S_IRUSR | S_IWUSR | S_IRGRP |
+                    S_IROTH); // takie bity ustawiaja plikowi zsh i bash u mnie
+        if (fd < 0)
+          app_error("Failed to open a file: file %s, line %d", __FILE__,
+                    __LINE__);
+
+        dup2(fd, *outputp);
+      }
+
+      MaybeClose(&fd);
+    }
+
+    if (redirs)
+      token[i] = T_NULL;
+    else
+      ++n;
+
 #endif /* !STUDENT */
   }
 
@@ -58,6 +92,7 @@ static int do_job(token_t *token, int ntokens, bool bg) {
 
   /* TODO: Start a subprocess, create a job and monitor it. */
 #ifdef STUDENT
+
 #endif /* !STUDENT */
 
   Sigprocmask(SIG_SETMASK, &mask, NULL);
@@ -76,6 +111,12 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
   /* TODO: Start a subprocess and make sure it's moved to a process group. */
   pid_t pid = Fork();
 #ifdef STUDENT
+  if (pid < 0)
+    app_error("Failed to fork: file %s, line %d", __FILE__, __LINE__);
+  else if (pid > 0) {
+
+  } else {
+  }
 #endif /* !STUDENT */
 
   return pid;
