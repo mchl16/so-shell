@@ -51,7 +51,7 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
       } else if (mode == T_OUTPUT) {
         fd = open(token[i], O_WRONLY | O_CREAT,
                   S_IRUSR | S_IWUSR | S_IRGRP |
-                    S_IROTH); // takie bity ustawiaja plikowi zsh i bash u mnie
+                    S_IROTH); // takie bity ustawiaja plikowi zsh i bash u mnie (to be changed?)
         if (fd < 0)
           app_error("Failed to open a file: file %s, line %d", __FILE__,
                     __LINE__);
@@ -92,7 +92,16 @@ static int do_job(token_t *token, int ntokens, bool bg) {
 
   /* TODO: Start a subprocess, create a job and monitor it. */
 #ifdef STUDENT
-
+  int pid=fork();
+  if(pid<0) app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
+  else if(pid>0){
+    int j=addjob(pid,bg);
+    addproc(j,pid,token);
+  }
+  else{
+    external_command(token);
+    app_error("execve failed: file %s, line %d", __FILE__, __LINE__);
+  }
 #endif /* !STUDENT */
 
   Sigprocmask(SIG_SETMASK, &mask, NULL);
@@ -112,10 +121,14 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
   pid_t pid = Fork();
 #ifdef STUDENT
   if (pid < 0)
-    app_error("Failed to fork: file %s, line %d", __FILE__, __LINE__);
+    app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
   else if (pid > 0) {
-
+    
   } else {
+    setpgid(0,pgid);
+    if(builtin_command(token)==-1) external_command(token);
+
+    app_error("command execution failed: file %s, line %d", __FILE__, __LINE__);
   }
 #endif /* !STUDENT */
 
@@ -148,6 +161,15 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   /* TODO: Start pipeline subprocesses, create a job and monitor it.
    * Remember to close unused pipe ends! */
 #ifdef STUDENT
+  for(int i=0;i<ntokens;++i){
+    int j=i;  //wyznaczamy tokeny do wykonania kolejnego procesu w pipelinie
+    while(token[j++]!=T_PIPE);
+    token_t *args=malloc((j-i)*sizeof(token_t));
+    for (int i2=0;i2<j-i;++i2) args[i2]=token[i+i2];
+
+    do_stage(pgid,&mask,input,output,args,j,bg);
+
+  }
   (void)input;
   (void)job;
   (void)pid;

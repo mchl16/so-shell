@@ -29,7 +29,7 @@ static void sigchld_handler(int sig) {
 #ifdef STUDENT
   (void)status;
   (void)pid;
-  // int id = waitpid(-1, NULL, WNOHANG);
+  pid = waitpid(-1, &status, WNOHANG);
 #endif /* !STUDENT */
   errno = old_errno;
 }
@@ -147,7 +147,12 @@ bool resumejob(int j, int bg, sigset_t *mask) {
 
     /* TODO: Continue stopped job. Possibly move job to foreground slot. */
 #ifdef STUDENT
-  (void)movejob;
+  if(!bg){
+    movejob(0,allocjob());
+    movejob(j,0);
+    j=0;
+  }
+  jobs[j].state=RUNNING;
   kill(jobs[j].pgid, SIGCONT);
 
 #endif /* !STUDENT */
@@ -233,7 +238,10 @@ void shutdownjobs(void) {
 
   /* TODO: Kill remaining jobs and wait for them to finish. */
 #ifdef STUDENT
-
+  for(int i=0;i<njobmax;++i){
+    killjob(i);
+    waitpid(-jobs[i].pgid,NULL,0);
+  }
 #endif /* !STUDENT */
 
   watchjobs(FINISHED);
