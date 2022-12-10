@@ -29,7 +29,17 @@ static void sigchld_handler(int sig) {
 #ifdef STUDENT
   (void)status;
   (void)pid;
-  pid = waitpid(-1, &status, WNOHANG);
+  do{
+    pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
+  } while(pid==0);
+
+  for(int i=0;i<njobmax;++i){
+    if(jobs[i].pgid!=getpgid(pid)) continue;
+    if(WIFSTOPPED(status)){
+      jobs[i].state=STOPPED;
+    }
+    else if(WIFEXITED(status)) jobs[i].state=FINISHED;
+  }
 #endif /* !STUDENT */
   errno = old_errno;
 }
@@ -119,10 +129,7 @@ static int jobstate(int j, int *statusp) {
   /* TODO: Handle case where job has finished. */
 #ifdef STUDENT
   // (void)exitcode;
-  if (state == FINISHED) {
-    *statusp = exitcode(job);
-    deljob(job);
-  }
+  if (state == FINISHED) *statusp = exitcode(job);
 #endif /* !STUDENT */
 
   return state;
@@ -183,6 +190,21 @@ void watchjobs(int which) {
 
       /* TODO: Report job number, state, command and exit code or signal. */
 #ifdef STUDENT
+    int exitcode=-1;
+    int status=jobstate(j,&exitcode);
+
+    switch(status){
+      case RUNNING:
+        if(which==RUNNING || which==ALL){
+          msg("running '%s'",jobs[j].command);
+        }
+        break;
+      case STOPPED:
+        if(which==STOPPED || which==ALL){
+          msg("stopped '%s'",jobs[j].command);
+        }
+
+    }
     (void)deljob;
 #endif /* !STUDENT */
   }
@@ -195,6 +217,9 @@ int monitorjob(sigset_t *mask) {
 
   /* TODO: Following code requires use of Tcsetpgrp of tty_fd. */
 #ifdef STUDENT
+  while(jobstate(0,&exitcode)==RUNNING);
+  setfgpgrp(jobs[0].pgid);
+
   (void)jobstate;
   (void)exitcode;
   (void)state;

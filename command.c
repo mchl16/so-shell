@@ -113,15 +113,15 @@ noreturn void external_command(char **argv) {
   if (!index(argv[0], '/') && path) {
     /* TODO: For all paths in PATH construct an absolute path and execve it. */
 #ifdef STUDENT
-    int n = strlen(argv[0]);
+    int n = strlen(path);
     for (int i = 0; i < n;) {
-      int len = strcspn(argv[0] + i, ":");
-      char *c = strndup(argv[0] + i, len);
+      int len = strcspn(path + i, ":");
+      char *c = strndup(path + i, len);
       strapp(&c, "/");
       strapp(&c, argv[0]);
       (void)execve(c, argv, environ);
       free(c);
-      i += len;
+      i += len+1;
     }
 #endif /* !STUDENT */
   } else {

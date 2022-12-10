@@ -31,16 +31,14 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
   for (int i = 0; i < ntokens; i++) {
     /* TODO: Handle tokens and open files as requested. */
 #ifdef STUDENT
-    bool redirs = false;
-
     if (token[i] == T_INPUT) {
-      redirs = true;
       mode = T_INPUT;
+      continue;
     } else if (token[i] == T_OUTPUT) {
-      redirs = true;
       mode = T_OUTPUT;
+      continue;
     } else if (mode != NULL) {
-      int fd;
+      int fd=-1;
       if (mode == T_INPUT) {
         fd = open(token[i], O_RDONLY);
         if (fd < 0)
@@ -58,14 +56,11 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
 
         dup2(fd, *outputp);
       }
-
       MaybeClose(&fd);
+      break;
     }
 
-    if (redirs)
-      token[i] = T_NULL;
-    else
-      ++n;
+    ++n;
 
 #endif /* !STUDENT */
   }
@@ -122,14 +117,7 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
 #ifdef STUDENT
   if (pid < 0)
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
-  else if (pid > 0) {
-    
-  } else {
-    setpgid(0,pgid);
-    if(builtin_command(token)==-1) external_command(token);
-
-    app_error("command execution failed: file %s, line %d", __FILE__, __LINE__);
-  }
+  else if (pid == 0) setpgid(0, pgid ? pgid : pid);
 #endif /* !STUDENT */
 
   return pid;
@@ -161,15 +149,24 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   /* TODO: Start pipeline subprocesses, create a job and monitor it.
    * Remember to close unused pipe ends! */
 #ifdef STUDENT
-  for(int i=0;i<ntokens;++i){
-    int j=i;  //wyznaczamy tokeny do wykonania kolejnego procesu w pipelinie
-    while(token[j++]!=T_PIPE);
-    token_t *args=malloc((j-i)*sizeof(token_t));
+  //do_stage(2);
+  int j=0;
+  while(token[j++]!=T_PIPE);
+  token_t *args=malloc(j*sizeof(token_t));
+  pid=do_stage(pgid,&mask,input,output,args,j,bg);
+  pgid=pid;
+
+  ++j;
+  for(int i=j;i<ntokens;i=++j){
+    while(token[j++]!=T_PIPE); //wyznaczamy tokeny do wykonania kolejnego procesu w pipelinie
+    args=malloc((j-i)*sizeof(token_t));
     for (int i2=0;i2<j-i;++i2) args[i2]=token[i+i2];
-
-    do_stage(pgid,&mask,input,output,args,j,bg);
-
+    
+    pid=do_stage(pgid,&mask,input,output,args,j-i,bg);
   }
+  
+
+  
   (void)input;
   (void)job;
   (void)pid;
