@@ -33,34 +33,39 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
 #ifdef STUDENT
     if (token[i] == T_INPUT) {
       mode = T_INPUT;
+      token[i] = NULL;
       continue;
     } else if (token[i] == T_OUTPUT) {
       mode = T_OUTPUT;
+      token[i] = NULL;
       continue;
-    } else if (mode != NULL) {
-      int fd=-1;
+    }
+    if (mode != NULL) {
+      int fd = -1;
       if (mode == T_INPUT) {
         fd = open(token[i], O_RDONLY);
         if (fd < 0)
           app_error("Failed to open a file: file %s, line %d", __FILE__,
                     __LINE__);
 
-        dup2(fd, *inputp); // 0 zostanie wczesniej zamkniety, bo tak dziala dup2
+        *inputp = fd; // 0 zostanie wczesniej zamkniety, bo tak dziala dup2
       } else if (mode == T_OUTPUT) {
         fd = open(token[i], O_WRONLY | O_CREAT,
                   S_IRUSR | S_IWUSR | S_IRGRP |
-                    S_IROTH); // takie bity ustawiaja plikowi zsh i bash u mnie (to be changed?)
+                    S_IROTH); // takie bity ustawiaja plikowi zsh i bash u mnie
+                              // (to be changed?)
         if (fd < 0)
           app_error("Failed to open a file: file %s, line %d", __FILE__,
                     __LINE__);
 
-        dup2(fd, *outputp);
+        *outputp = fd;
       }
-      MaybeClose(&fd);
-      break;
-    }
 
-    ++n;
+    } else
+      ++n;
+
+    if (i != n - 1)
+      token[i] = NULL;
 
 #endif /* !STUDENT */
   }
@@ -87,13 +92,23 @@ static int do_job(token_t *token, int ntokens, bool bg) {
 
   /* TODO: Start a subprocess, create a job and monitor it. */
 #ifdef STUDENT
-  int pid=fork();
-  if(pid<0) app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
-  else if(pid>0){
-    int j=addjob(pid,bg);
-    addproc(j,pid,token);
-  }
-  else{
+  int pid = fork();
+  if (pid < 0)
+    app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
+  else if (pid > 0) {
+    MaybeClose(&input);
+    MaybeClose(&output);
+    int j = addjob(pid, bg);
+    addproc(j, pid, token);
+  } else {
+    if (input != -1) {
+      dup2(input, STDIN_FILENO);
+      close(input);
+    }
+    if (output != -1) {
+      dup2(output, STDOUT_FILENO);
+      close(output);
+    }
     external_command(token);
     app_error("execve failed: file %s, line %d", __FILE__, __LINE__);
   }
@@ -117,7 +132,8 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
 #ifdef STUDENT
   if (pid < 0)
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
-  else if (pid == 0) setpgid(0, pgid ? pgid : pid);
+  else if (pid == 0)
+    setpgid(0, pgid ? pgid : pid);
 #endif /* !STUDENT */
 
   return pid;
@@ -149,24 +165,25 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   /* TODO: Start pipeline subprocesses, create a job and monitor it.
    * Remember to close unused pipe ends! */
 #ifdef STUDENT
-  //do_stage(2);
-  int j=0;
-  while(token[j++]!=T_PIPE);
-  token_t *args=malloc(j*sizeof(token_t));
-  pid=do_stage(pgid,&mask,input,output,args,j,bg);
-  pgid=pid;
+  // do_stage(2);
+  int j = 0;
+  while (token[j++] != T_PIPE)
+    ;
+  token_t *args = malloc(j * sizeof(token_t));
+  pid = do_stage(pgid, &mask, input, output, args, j, bg);
+  pgid = pid;
 
   ++j;
-  for(int i=j;i<ntokens;i=++j){
-    while(token[j++]!=T_PIPE); //wyznaczamy tokeny do wykonania kolejnego procesu w pipelinie
-    args=malloc((j-i)*sizeof(token_t));
-    for (int i2=0;i2<j-i;++i2) args[i2]=token[i+i2];
-    
-    pid=do_stage(pgid,&mask,input,output,args,j-i,bg);
-  }
-  
+  for (int i = j; i < ntokens; i = ++j) {
+    while (token[j++] != T_PIPE)
+      ; // wyznaczamy tokeny do wykonania kolejnego procesu w pipelinie
+    args = malloc((j - i) * sizeof(token_t));
+    for (int i2 = 0; i2 < j - i; ++i2)
+      args[i2] = token[i + i2];
 
-  
+    pid = do_stage(pgid, &mask, input, output, args, j - i, bg);
+  }
+
   (void)input;
   (void)job;
   (void)pid;

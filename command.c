@@ -119,9 +119,14 @@ noreturn void external_command(char **argv) {
       char *c = strndup(path + i, len);
       strapp(&c, "/");
       strapp(&c, argv[0]);
-      (void)execve(c, argv, environ);
+
+      (void)execve(
+        c, argv,
+        environ); // reminder: asterisk w np. wc -l *.c jest ogarniany przez
+                  // shella (czyli nie z naszą gramatyką), a nie przez wc
+
       free(c);
-      i += len+1;
+      i += len + 1;
     }
 #endif /* !STUDENT */
   } else {
