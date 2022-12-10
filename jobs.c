@@ -218,9 +218,9 @@ int monitorjob(sigset_t *mask) {
 
   /* TODO: Following code requires use of Tcsetpgrp of tty_fd. */
 #ifdef STUDENT
-  while (jobstate(0, &exitcode) == RUNNING)
-    ;
   setfgpgrp(jobs[0].pgid);
+  while (jobstate(0, &exitcode) == RUNNING);
+  
 
   (void)jobstate;
   (void)exitcode;
