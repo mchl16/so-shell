@@ -33,11 +33,9 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
 #ifdef STUDENT
     if (token[i] == T_INPUT) {
       mode = T_INPUT;
-      token[i] = NULL;
       continue;
     } else if (token[i] == T_OUTPUT) {
       mode = T_OUTPUT;
-      token[i] = NULL;
       continue;
     }
     if (mode != NULL) {
@@ -50,7 +48,7 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
 
         *inputp = fd; // 0 zostanie wczesniej zamkniety, bo tak dziala dup2
       } else if (mode == T_OUTPUT) {
-        fd = open(token[i], O_WRONLY | O_CREAT,
+        fd = open(token[i], O_WRONLY | O_CREAT | O_TRUNC,
                   S_IRUSR | S_IWUSR | S_IRGRP |
                     S_IROTH); // takie bity ustawiaja plikowi zsh i bash u mnie
                               // (to be changed?)
@@ -63,9 +61,6 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
 
     } else
       ++n;
-
-    if (i != n - 1)
-      token[i] = NULL;
 
 #endif /* !STUDENT */
   }
@@ -100,7 +95,10 @@ static int do_job(token_t *token, int ntokens, bool bg) {
     MaybeClose(&output);
     int j = addjob(pid, bg);
     addproc(j, pid, token);
+    if (!bg)
+      exitcode = monitorjob(&mask);
   } else {
+    setpgid(0, 0);
     if (input != -1) {
       dup2(input, STDIN_FILENO);
       close(input);
@@ -132,8 +130,26 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
 #ifdef STUDENT
   if (pid < 0)
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
-  else if (pid == 0)
+  else if (pid == 0) {
     setpgid(0, pgid ? pgid : pid);
+    if (input != STDIN_FILENO) {
+      dup2(input, STDIN_FILENO);
+      close(input);
+    }
+    if (output != STDOUT_FILENO) {
+      dup2(output, STDOUT_FILENO);
+      close(output);
+    }
+
+    if (!bg) {
+      int exitcode = 0;
+      if ((exitcode = builtin_command(token)) >= 0)
+        exit(exitcode);
+    }
+
+    external_command(token);
+    app_error("execve failed: file %s, line %d", __FILE__, __LINE__);
+  }
 #endif /* !STUDENT */
 
   return pid;
@@ -165,30 +181,57 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   /* TODO: Start pipeline subprocesses, create a job and monitor it.
    * Remember to close unused pipe ends! */
 #ifdef STUDENT
-  // do_stage(2);
   int j = 0;
-  while (token[j++] != T_PIPE)
-    ;
-  token_t *args = malloc(j * sizeof(token_t));
-  pid = do_stage(pgid, &mask, input, output, args, j, bg);
+  while (token[j] && token[j] != T_PIPE)
+    ++j; // wyznaczamy tokeny do wykonania kolejnego procesu w pipelinie
+  token_t *args = malloc((j + 1) * sizeof(token_t));
+  for (int i2 = 0; i2 < j; ++i2)
+    args[i2] = token[i2]; // nie mozna niestety uzyc strncpy
+  args[j] = NULL;
+
+  pid = do_stage(0, &mask, STDIN_FILENO, output, args, j, bg);
   pgid = pid;
+
+  job = addjob(pgid, bg);
+  addproc(job, pid, args);
 
   ++j;
   for (int i = j; i < ntokens; i = ++j) {
-    while (token[j++] != T_PIPE)
-      ; // wyznaczamy tokeny do wykonania kolejnego procesu w pipelinie
-    args = malloc((j - i) * sizeof(token_t));
+    while (token[j] && token[j] != T_PIPE)
+      ++j; // wyznaczamy tokeny do wykonania kolejnego procesu w pipelinie
+    args = malloc((j - i + 1) * sizeof(token_t));
     for (int i2 = 0; i2 < j - i; ++i2)
       args[i2] = token[i + i2];
+    args[j - i] = NULL;
 
-    pid = do_stage(pgid, &mask, input, output, args, j - i, bg);
+    MaybeClose(
+      &input); // ustawiamy deskryptory tak, by był pipe między kolejnymi
+               // procesami (stdin i stdout ogarniamy w do_stage)
+    input = dup(next_input);
+    MaybeClose(&next_input);
+    MaybeClose(&output);
+
+    if (j == ntokens)
+      pid = do_stage(pgid, &mask, input, STDOUT_FILENO, args, j - i, bg);
+    else {
+      mkpipe(&next_input, &output);
+      pid = do_stage(pgid, &mask, input, output, args, j - i, bg);
+    }
+    addproc(job, pid, args);
   }
+  MaybeClose(&next_input);
+  MaybeClose(&output);
+  MaybeClose(&input);
+
+  if (!bg)
+    exitcode = monitorjob(&mask);
 
   (void)input;
   (void)job;
   (void)pid;
   (void)pgid;
   (void)do_stage;
+
 #endif /* !STUDENT */
 
   Sigprocmask(SIG_SETMASK, &mask, NULL);

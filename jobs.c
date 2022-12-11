@@ -198,12 +198,18 @@ void watchjobs(int which) {
     switch (status) {
       case RUNNING:
         if (which == RUNNING || which == ALL) {
-          msg("running '%s'\n", jobs[j].command);
+          msg("[%d] running '%s'\n", j, jobs[j].command);
         }
         break;
       case STOPPED:
         if (which == STOPPED || which == ALL) {
-          msg("stopped '%s'\n", jobs[j].command);
+          msg("[%d] stopped '%s'\n", j, jobs[j].command);
+        }
+        break;
+      case FINISHED:
+        if (which == FINISHED || which == ALL) {
+          msg("[%d] finished '%s'\n", j, jobs[j].command);
+          deljob(&jobs[j]);
         }
     }
     (void)deljob;
@@ -218,9 +224,12 @@ int monitorjob(sigset_t *mask) {
 
   /* TODO: Following code requires use of Tcsetpgrp of tty_fd. */
 #ifdef STUDENT
-  setfgpgrp(jobs[0].pgid);
-  while (jobstate(0, &exitcode) == RUNNING);
-  
+  /*setfgpgrp(jobs[0].pgid);
+  do{
+    state=jobstate(0, &exitcode);
+    printf("!");
+  } while(exitcode==0);
+  setfgpgrp(getpgid(0));*/
 
   (void)jobstate;
   (void)exitcode;
