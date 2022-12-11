@@ -98,6 +98,7 @@ static int do_job(token_t *token, int ntokens, bool bg) {
     if (!bg) {
       exitcode = monitorjob(&mask);
     }
+    
 
   } else {
     setpgid(0, 0);
@@ -226,8 +227,10 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   MaybeClose(&input);
 
   if (!bg) {
+  //  setfgpgrp(pgid);
     exitcode = monitorjob(&mask);
   }
+  
 
   (void)input;
   (void)job;

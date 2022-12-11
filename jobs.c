@@ -157,11 +157,13 @@ bool resumejob(int j, int bg, sigset_t *mask) {
 
     /* TODO: Continue stopped job. Possibly move job to foreground slot. */
 #ifdef STUDENT
+  
   if (!bg) {
     movejob(0, allocjob());
     movejob(j, 0);
     j = 0;
-  }
+    setfgpgrp(jobs[0].pgid);
+  }  
   jobs[j].state = RUNNING;
   kill(-jobs[j].pgid, SIGCONT);
 
@@ -226,13 +228,11 @@ int monitorjob(sigset_t *mask) {
   /* TODO: Following code requires use of Tcsetpgrp of tty_fd. */
 #ifdef STUDENT
   setfgpgrp(jobs[0].pgid);
-  printf("X!\n");
   waitpid(-jobs[0].pgid, NULL, WUNTRACED);
-  printf("D!\n");
   if (jobstate(0, &state) == STOPPED)
     movejob(0, allocjob());
   setfgpgrp(getpgrp()); // przywracamy terminal
-  Tcgetattr(tty_fd, &shell_tmodes);
+  Tcsetattr(tty_fd, TCSANOW, &shell_tmodes);
 
   (void)jobstate;
   (void)exitcode;
