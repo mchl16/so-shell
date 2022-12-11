@@ -130,7 +130,8 @@ static int jobstate(int j, int *statusp) {
   /* TODO: Handle case where job has finished. */
 #ifdef STUDENT
   // (void)exitcode;
-  if (state == FINISHED)
+  if (state == FINISHED &&
+      statusp) // jak chcemy sam state, to można dać statusp=NULL
     *statusp = exitcode(job);
 #endif /* !STUDENT */
 
@@ -162,7 +163,7 @@ bool resumejob(int j, int bg, sigset_t *mask) {
     j = 0;
   }
   jobs[j].state = RUNNING;
-  kill(jobs[j].pgid, SIGCONT);
+  kill(-jobs[j].pgid, SIGCONT);
 
 #endif /* !STUDENT */
 
@@ -224,12 +225,14 @@ int monitorjob(sigset_t *mask) {
 
   /* TODO: Following code requires use of Tcsetpgrp of tty_fd. */
 #ifdef STUDENT
-  /*setfgpgrp(jobs[0].pgid);
-  do{
-    state=jobstate(0, &exitcode);
-    printf("!");
-  } while(exitcode==0);
-  setfgpgrp(getpgid(0));*/
+  setfgpgrp(jobs[0].pgid);
+  printf("X!\n");
+  waitpid(-jobs[0].pgid, NULL, WUNTRACED);
+  printf("D!\n");
+  if (jobstate(0, &state) == STOPPED)
+    movejob(0, allocjob());
+  setfgpgrp(getpgrp()); // przywracamy terminal
+  Tcgetattr(tty_fd, &shell_tmodes);
 
   (void)jobstate;
   (void)exitcode;

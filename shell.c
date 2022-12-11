@@ -95,8 +95,10 @@ static int do_job(token_t *token, int ntokens, bool bg) {
     MaybeClose(&output);
     int j = addjob(pid, bg);
     addproc(j, pid, token);
-    if (!bg)
+    if (!bg) {
       exitcode = monitorjob(&mask);
+    }
+
   } else {
     setpgid(0, 0);
     if (input != -1) {
@@ -223,8 +225,9 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   MaybeClose(&output);
   MaybeClose(&input);
 
-  if (!bg)
+  if (!bg) {
     exitcode = monitorjob(&mask);
+  }
 
   (void)input;
   (void)job;
