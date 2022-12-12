@@ -32,22 +32,18 @@ static void sigchld_handler(int sig) {
   do {
     pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
   } while (pid == 0);
-  if(pid==-1) fprintf(stderr,"%s\n",strerror(errno));
+  if(pid==-1) fprintf(stderr,"%s\n",strerror(errno)); //do wywalenia?
 
-  fprintf(stderr,"%d???\n",pid);
   for (int i = 0; i < njobmax; ++i) {
     int j=0;
     for(;j<jobs[i].nproc;++j){
       if(jobs[i].proc[j].pid==pid){
         if(WIFEXITED(status)){
           status=FINISHED; //recykling jest modny
-          fprintf(stderr,"f");
         }
         else if(WIFSTOPPED(status)){
           status=STOPPED;
-          fprintf(stderr,"s");
         }
-        fprintf(stderr,"%d, kek\n",status);
         jobs[i].proc[j].state=status;
         break;
       }
@@ -216,17 +212,17 @@ void watchjobs(int which) {
     switch (status) {
       case RUNNING:
         if (which == RUNNING || which == ALL) {
-          msg("[%d] running '%s'\n", jobs[j].pgid, jobs[j].command);
+          msg("running '%s'\n", jobs[j].command);
         }
         break;
       case STOPPED:
         if (which == STOPPED || which == ALL) {
-          msg("[%d] stopped '%s'\n", j, jobs[j].command);
+          msg("suspended'%s'\n", jobs[j].command);
         }
         break;
       case FINISHED:
         if (which == FINISHED || which == ALL) {
-          msg("[%d] finished '%s'\n", j, jobs[j].command);
+          msg("exited '%s', status=%d\n", jobs[j].command, exitcode);
           deljob(&jobs[j]);
         }
     }
@@ -241,9 +237,9 @@ int monitorjob(sigset_t *mask) {
   int exitcode = 0, state;
 
   /* TODO: Following code requires use of Tcsetpgrp of tty_fd. */
-#ifdef STUDENT
+#ifdef STUDENT 
   setfgpgrp(jobs[0].pgid);
-  waitpid(-jobs[0].pgid, NULL, WUNTRACED);
+  sigsuspend(mask); //waitpid(-jobs[0].pgid, NULL, WUNTRACED);
   if (jobstate(0, &state) == STOPPED)
     movejob(0, allocjob());
   setfgpgrp(getpgrp()); // przywracamy terminal
