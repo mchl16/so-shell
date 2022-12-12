@@ -101,6 +101,11 @@ static int do_job(token_t *token, int ntokens, bool bg) {
     
 
   } else {
+    signal(SIGINT,SIG_DFL);
+    signal(SIGTSTP,SIG_DFL);
+    signal(SIGTTIN,SIG_DFL);
+    signal(SIGTTOU,SIG_DFL);
+
     setpgid(0, 0);
     if (input != -1) {
       dup2(input, STDIN_FILENO);
@@ -134,7 +139,12 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
   if (pid < 0)
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
   else if (pid == 0) {
-    setpgid(0, pgid ? pgid : pid);
+    signal(SIGINT,SIG_DFL);
+    signal(SIGTSTP,SIG_DFL);
+    signal(SIGTTIN,SIG_DFL);
+    signal(SIGTTOU,SIG_DFL);
+
+    setpgid(0, pgid ? pgid : getpid());
     if (input != STDIN_FILENO) {
       dup2(input, STDIN_FILENO);
       close(input);
@@ -197,6 +207,7 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
 
   job = addjob(pgid, bg);
   addproc(job, pid, args);
+  free(args);
 
   ++j;
   for (int i = j; i < ntokens; i = ++j) {
@@ -221,13 +232,13 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
       pid = do_stage(pgid, &mask, input, output, args, j - i, bg);
     }
     addproc(job, pid, args);
+    free(args);
   }
   MaybeClose(&next_input);
   MaybeClose(&output);
   MaybeClose(&input);
 
   if (!bg) {
-  //  setfgpgrp(pgid);
     exitcode = monitorjob(&mask);
   }
   

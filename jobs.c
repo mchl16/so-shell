@@ -32,14 +32,29 @@ static void sigchld_handler(int sig) {
   do {
     pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
   } while (pid == 0);
+  if(pid==-1) fprintf(stderr,"%s\n",strerror(errno));
 
+  fprintf(stderr,"%d???\n",pid);
   for (int i = 0; i < njobmax; ++i) {
-    if (jobs[i].pgid != getpgid(pid))
-      continue;
-    if (WIFSTOPPED(status)) {
-      jobs[i].state = STOPPED;
-    } else if (WIFEXITED(status))
-      jobs[i].state = FINISHED;
+    int j=0;
+    for(;j<jobs[i].nproc;++j){
+      if(jobs[i].proc[j].pid==pid){
+        if(WIFEXITED(status)){
+          status=FINISHED; //recykling jest modny
+          fprintf(stderr,"f");
+        }
+        else if(WIFSTOPPED(status)){
+          status=STOPPED;
+          fprintf(stderr,"s");
+        }
+        fprintf(stderr,"%d, kek\n",status);
+        jobs[i].proc[j].state=status;
+        break;
+      }
+      if(j==jobs[i].nproc-1) jobs[i].state=status;
+      if(j!=jobs[i].nproc) break;
+    }
+      
   }
 #endif /* !STUDENT */
   errno = old_errno;
@@ -201,7 +216,7 @@ void watchjobs(int which) {
     switch (status) {
       case RUNNING:
         if (which == RUNNING || which == ALL) {
-          msg("[%d] running '%s'\n", j, jobs[j].command);
+          msg("[%d] running '%s'\n", jobs[j].pgid, jobs[j].command);
         }
         break;
       case STOPPED:
@@ -233,7 +248,6 @@ int monitorjob(sigset_t *mask) {
     movejob(0, allocjob());
   setfgpgrp(getpgrp()); // przywracamy terminal
   Tcsetattr(tty_fd, TCSANOW, &shell_tmodes);
-
   (void)jobstate;
   (void)exitcode;
   (void)state;
