@@ -98,15 +98,34 @@ static int do_job(token_t *token, int ntokens, bool bg) {
     if (!bg) {
       exitcode = monitorjob(&mask);
     }
-    
+    else{
+      char *cmd;
+      int chars=0;
+      for(int i=0;i<ntokens;++i) chars+=strlen(token[i])+1;
+      cmd=malloc(chars);
+      int offset=0;
+      for (int i=0;i<ntokens;){
+        int len=strlen(token[i]);
+        strcpy(cmd+offset,token[i++]);
+        if(i!=ntokens){
+          cmd[offset+=len]=' ';
+          ++offset;
+        }
+      }
+      msg("[%d] running '%s'\n", j,cmd);
+      free(cmd);
+    }
 
   } else {
     signal(SIGINT,SIG_DFL);
+    signal (SIGQUIT, SIG_DFL);
     signal(SIGTSTP,SIG_DFL);
     signal(SIGTTIN,SIG_DFL);
     signal(SIGTTOU,SIG_DFL);
+    signal (SIGCHLD, SIG_DFL);
 
     setpgid(0, 0);
+   // if(!bg) setfgpgrp(getpgrp());
     if (input != -1) {
       dup2(input, STDIN_FILENO);
       close(input);
@@ -140,11 +159,14 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
   else if (pid == 0) {
     signal(SIGINT,SIG_DFL);
+    signal (SIGQUIT, SIG_DFL);
     signal(SIGTSTP,SIG_DFL);
     signal(SIGTTIN,SIG_DFL);
     signal(SIGTTOU,SIG_DFL);
+    signal (SIGCHLD, SIG_DFL);
 
     setpgid(0, pgid ? pgid : getpid());
+
     if (input != STDIN_FILENO) {
       dup2(input, STDIN_FILENO);
       close(input);
@@ -204,6 +226,7 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
 
   pid = do_stage(0, &mask, STDIN_FILENO, output, args, j, bg);
   pgid = pid;
+  //if(!bg) setfgpgrp(pgid);
 
   job = addjob(pgid, bg);
   addproc(job, pid, args);
@@ -241,6 +264,7 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   if (!bg) {
     exitcode = monitorjob(&mask);
   }
+  // else msg("[%d] running '%s'\n", j,jobs[i].command);
   
 
   (void)input;
