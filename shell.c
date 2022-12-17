@@ -86,7 +86,8 @@ static int do_job(token_t *token, int ntokens, bool bg) {
   Sigprocmask(SIG_BLOCK, &sigchld_mask, &mask);
 
   /* TODO: Start a subprocess, create a job and monitor it. */
-#ifdef STUDENT
+#ifdef STUDENT  
+ // fprintf(stderr,"%ld???\n",(long)mask);
   int pid = fork();
   if (pid < 0)
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
@@ -216,6 +217,7 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   /* TODO: Start pipeline subprocesses, create a job and monitor it.
    * Remember to close unused pipe ends! */
 #ifdef STUDENT
+ // fprintf(stderr,"%ld???\n",(long)mask);
   int j = 0;
   while (token[j] && token[j] != T_PIPE)
     ++j; // wyznaczamy tokeny do wykonania kolejnego procesu w pipelinie
