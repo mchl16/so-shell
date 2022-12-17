@@ -86,7 +86,7 @@ static int do_job(token_t *token, int ntokens, bool bg) {
 
   /* TODO: Start a subprocess, create a job and monitor it. */
 #ifdef STUDENT
-// fprintf(stderr,"%ld???\n",(long)mask);
+  // fprintf(stderr,"%ld???\n",(long)mask);
   int pid = fork();
   if (pid < 0)
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
@@ -96,34 +96,33 @@ static int do_job(token_t *token, int ntokens, bool bg) {
     int j = addjob(pid, bg);
     addproc(j, pid, token);
     if (!bg) {
-      
       exitcode = monitorjob(&mask);
-    }
-    else{
+    } else {
       char *cmd;
-      int chars=0;
-      for(int i=0;i<ntokens;++i) chars+=strlen(token[i])+1;
-      cmd=malloc(chars);
-      int offset=0;
-      for (int i=0;i<ntokens;){
-        int len=strlen(token[i]);
-        strcpy(cmd+offset,token[i++]);
-        if(i!=ntokens){
-          cmd[offset+=len]=' ';
+      int chars = 0;
+      for (int i = 0; i < ntokens; ++i)
+        chars += strlen(token[i]) + 1;
+      cmd = malloc(chars);
+      int offset = 0;
+      for (int i = 0; i < ntokens;) {
+        int len = strlen(token[i]);
+        strcpy(cmd + offset, token[i++]);
+        if (i != ntokens) {
+          cmd[offset += len] = ' ';
           ++offset;
         }
       }
-      msg("[%d] running '%s'\n", j,cmd);
+      msg("[%d] running '%s'\n", j, cmd);
       free(cmd);
     }
 
   } else {
-    signal(SIGINT,SIG_DFL);
-    signal (SIGQUIT, SIG_DFL);
-    signal(SIGTSTP,SIG_DFL);
-    signal(SIGTTIN,SIG_DFL);
-    signal(SIGTTOU,SIG_DFL);
-    signal (SIGCHLD, SIG_DFL);
+    signal(SIGINT, SIG_DFL);
+    signal(SIGQUIT, SIG_DFL);
+    signal(SIGTSTP, SIG_DFL);
+    signal(SIGTTIN, SIG_DFL);
+    signal(SIGTTOU, SIG_DFL);
+    signal(SIGCHLD, SIG_DFL);
 
     setpgid(0, 0);
     if (input != -1) {
@@ -155,15 +154,15 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
   /* TODO: Start a subprocess and make sure it's moved to a process group. */
   pid_t pid = Fork();
 #ifdef STUDENT
-if (pid < 0)
+  if (pid < 0)
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
   else if (pid == 0) {
-    signal(SIGINT,SIG_DFL);
-    signal (SIGQUIT, SIG_DFL);
-    signal(SIGTSTP,SIG_DFL);
-    signal(SIGTTIN,SIG_DFL);
-    signal(SIGTTOU,SIG_DFL);
-    signal (SIGCHLD, SIG_DFL);
+    signal(SIGINT, SIG_DFL);
+    signal(SIGQUIT, SIG_DFL);
+    signal(SIGTSTP, SIG_DFL);
+    signal(SIGTTIN, SIG_DFL);
+    signal(SIGTTOU, SIG_DFL);
+    signal(SIGCHLD, SIG_DFL);
 
     setpgid(0, pgid ? pgid : getpid());
 
@@ -261,10 +260,9 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   MaybeClose(&input);
 
   if (!bg) {
-    exitcode = monitorjob(&mask);
+      exitcode = monitorjob(&mask);
   }
   // else msg("[%d] running '%s'\n", j,jobs[i].command);
-  
 
   (void)input;
   (void)job;
