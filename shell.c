@@ -61,7 +61,6 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
 
     } else
       ++n;
-
 #endif /* !STUDENT */
   }
 
@@ -86,8 +85,8 @@ static int do_job(token_t *token, int ntokens, bool bg) {
   Sigprocmask(SIG_BLOCK, &sigchld_mask, &mask);
 
   /* TODO: Start a subprocess, create a job and monitor it. */
-#ifdef STUDENT  
- // fprintf(stderr,"%ld???\n",(long)mask);
+#ifdef STUDENT
+// fprintf(stderr,"%ld???\n",(long)mask);
   int pid = fork();
   if (pid < 0)
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
@@ -156,7 +155,7 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
   /* TODO: Start a subprocess and make sure it's moved to a process group. */
   pid_t pid = Fork();
 #ifdef STUDENT
-  if (pid < 0)
+if (pid < 0)
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
   else if (pid == 0) {
     signal(SIGINT,SIG_DFL);
@@ -272,7 +271,6 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   (void)pid;
   (void)pgid;
   (void)do_stage;
-
 #endif /* !STUDENT */
 
   Sigprocmask(SIG_SETMASK, &mask, NULL);
