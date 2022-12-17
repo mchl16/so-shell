@@ -33,7 +33,6 @@ static void sigchld_handler(int sig) {
     pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
   } while (pid == 0);
 
-  fprintf(stderr,"%d: ",pid);
   for (int i = 0; i < njobmax; ++i) {
     int j=0;
     for(;j<jobs[i].nproc;++j){
@@ -47,16 +46,12 @@ static void sigchld_handler(int sig) {
         }
         else if(WIFSTOPPED(status)){
           jobs[i].proc[j].state=STOPPED;
-
-          if(j+1!=jobs[i].nproc) break;
           jobs[i].state=STOPPED;
           tcgetattr(tty_fd, &jobs[i].tmodes);
         }
         break;
       }
     }
-    fprintf(stderr,"%d %d???\n",j, jobs[i].nproc);
-    fflush(stderr);
     if(j!=jobs[i].nproc) break;
   }
 #endif /* !STUDENT */
@@ -257,22 +252,12 @@ int monitorjob(sigset_t *mask) {
   /* TODO: Following code requires use of Tcsetpgrp of tty_fd. */
 #ifdef STUDENT 
   setfgpgrp(jobs[0].pgid);
- // sigsuspend(mask); 
-  //sigset_t oldmask;
-  //sigprocmask(SIG_UNBLOCK, mask, &oldmask);
-  while((state=jobstate(0, &exitcode))==RUNNING){
-   // fprintf(stderr,"$");
+  do{ //czekamy, aż proces z foregroundu się skończy
     sigsuspend(mask); 
-    
-  }
-  /*do{ //czekamy, aż proces z foregroundu się skończy
-    fprintf(stderr,"?");
-    
+    state=jobstate(0, &exitcode);
+    if (state == STOPPED) movejob(0, allocjob());
     fprintf(stderr,"!");
-  } while(state==RUNNING);*/
- // sigprocmask(SIG_BLOCK, &oldmask, NULL);
-  if (state == STOPPED) movejob(0, allocjob());
-  
+  } while(state==RUNNING);
   setfgpgrp(getpgrp()); // przywracamy terminal
   Tcsetattr(tty_fd, TCSANOW, &shell_tmodes);
   (void)jobstate;

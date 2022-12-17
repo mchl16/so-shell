@@ -97,6 +97,7 @@ static int do_job(token_t *token, int ntokens, bool bg) {
     int j = addjob(pid, bg);
     addproc(j, pid, token);
     if (!bg) {
+      
       exitcode = monitorjob(&mask);
     }
     else{
@@ -126,7 +127,6 @@ static int do_job(token_t *token, int ntokens, bool bg) {
     signal (SIGCHLD, SIG_DFL);
 
     setpgid(0, 0);
-   // if(!bg) setfgpgrp(getpgrp());
     if (input != -1) {
       dup2(input, STDIN_FILENO);
       close(input);
@@ -217,7 +217,6 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   /* TODO: Start pipeline subprocesses, create a job and monitor it.
    * Remember to close unused pipe ends! */
 #ifdef STUDENT
- // fprintf(stderr,"%ld???\n",(long)mask);
   int j = 0;
   while (token[j] && token[j] != T_PIPE)
     ++j; // wyznaczamy tokeny do wykonania kolejnego procesu w pipelinie
@@ -228,7 +227,6 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
 
   pid = do_stage(0, &mask, STDIN_FILENO, output, args, j, bg);
   pgid = pid;
-  //if(!bg) setfgpgrp(pgid);
 
   job = addjob(pgid, bg);
   addproc(job, pid, args);
