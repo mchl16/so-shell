@@ -260,7 +260,7 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   MaybeClose(&input);
 
   if (!bg) {
-      exitcode = monitorjob(&mask);
+    exitcode = monitorjob(&mask);
   }
   // else msg("[%d] running '%s'\n", j,jobs[i].command);
 

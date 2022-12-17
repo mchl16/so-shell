@@ -30,10 +30,11 @@ static void sigchld_handler(int sig) {
   (void)status;
   (void)pid;
   pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
-  if(pid<=0) return;
- /* do {
-    pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
-  } while (pid == 0);*/
+  if (pid <= 0)
+    return;
+  /* do {
+     pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
+   } while (pid == 0);*/
 
   // fprintf(stderr,"%d: ",pid);
   for (int i = 0; i < njobmax; ++i) {
@@ -193,12 +194,12 @@ bool resumejob(int j, int bg, sigset_t *mask) {
   jobs[j].state = RUNNING;
   kill(-jobs[j].pgid, SIGCONT);
 
-  if (!bg){
+  if (!bg) {
     sigsuspend(mask);
-    sigprocmask(SIG_SETMASK, mask,NULL);
+    sigprocmask(SIG_SETMASK, mask, NULL);
     monitorjob(mask);
   }
-    
+
 #endif /* !STUDENT */
 
   return true;
@@ -272,13 +273,13 @@ int monitorjob(sigset_t *mask) {
   setfgpgrp(jobs[0].pgid);
   sigprocmask(SIG_UNBLOCK, mask, NULL);
   sigsuspend(mask);
-  do{ //czekamy, aż proces z foregroundu się skończy
+  do { // czekamy, aż proces z foregroundu się skończy
     state = jobstate(0, &exitcode);
     if (state == STOPPED)
       movejob(0, allocjob());
-    if(waitpid(-1,NULL,WUNTRACED)<=0) break;
-  } while(state==RUNNING);
-  
+    if (waitpid(-1, NULL, WUNTRACED) <= 0)
+      break;
+  } while (state == RUNNING);
 
   setfgpgrp(getpgrp()); // przywracamy terminal
   Tcsetattr(tty_fd, TCSANOW, &shell_tmodes);
@@ -327,7 +328,8 @@ void shutdownjobs(void) {
 #ifdef STUDENT
   for (int i = 0; i < njobmax; ++i) {
     killjob(i);
-    for (int j=0;j<jobs[i].nproc;++j) waitpid(-jobs[i].pgid, NULL, WNOHANG);
+    for (int j = 0; j < jobs[i].nproc; ++j)
+      waitpid(-jobs[i].pgid, NULL, WNOHANG);
   }
 #endif /* !STUDENT */
 
