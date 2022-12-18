@@ -270,13 +270,13 @@ int monitorjob(sigset_t *mask) {
 
   /* TODO: Following code requires use of Tcsetpgrp of tty_fd. */
 #ifdef STUDENT
-  sigprocmask(SIG_SETMASK,mask,NULL);
-  //sigsuspend(mask); 
+  sigprocmask(SIG_SETMASK, mask, NULL);
+  // sigsuspend(mask);
   state = jobstate(0, &exitcode);
   // fprintf(stderr,"%d?!\n",state);
   while (state == RUNNING) { // czekamy, aż proces z foregroundu się skończy
                              // fprintf(stderr,"%d?!\n",state);
-           // obsługujemy sygnały
+                             // obsługujemy sygnały
     state = jobstate(0, &exitcode);
   }
   if (state == STOPPED)
