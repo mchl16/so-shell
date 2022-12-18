@@ -91,11 +91,13 @@ static int do_job(token_t *token, int ntokens, bool bg) {
   if (pid < 0)
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
   else if (pid > 0) {
+    setpgid(pid, pid);
     MaybeClose(&input);
     MaybeClose(&output);
     int j = addjob(pid, bg);
     addproc(j, pid, token);
     if (!bg) {
+      setfgpgrp(pid); // dajemy terminal procesowi
       exitcode = monitorjob(&mask);
     } else {
       char *cmd;
@@ -117,6 +119,10 @@ static int do_job(token_t *token, int ntokens, bool bg) {
     }
 
   } else {
+    setpgid(0, 0);
+    if (!bg)
+      setfgpgrp(getpgrp()); // dajemy terminal procesowi
+
     signal(SIGINT, SIG_DFL);
     signal(SIGQUIT, SIG_DFL);
     signal(SIGTSTP, SIG_DFL);
@@ -124,7 +130,6 @@ static int do_job(token_t *token, int ntokens, bool bg) {
     signal(SIGTTOU, SIG_DFL);
     signal(SIGCHLD, SIG_DFL);
 
-    setpgid(0, 0);
     if (input != -1) {
       dup2(input, STDIN_FILENO);
       close(input);
@@ -133,6 +138,7 @@ static int do_job(token_t *token, int ntokens, bool bg) {
       dup2(output, STDOUT_FILENO);
       close(output);
     }
+    sigprocmask(SIG_SETMASK, &mask, NULL);
     external_command(token);
     app_error("execve failed: file %s, line %d", __FILE__, __LINE__);
   }
@@ -157,14 +163,15 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
   if (pid < 0)
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
   else if (pid == 0) {
+    setpgid(0, pgid ? pgid : getpid());
+    setfgpgrp(getpgrp()); // dajemy terminal procesowi
+
     signal(SIGINT, SIG_DFL);
     signal(SIGQUIT, SIG_DFL);
     signal(SIGTSTP, SIG_DFL);
     signal(SIGTTIN, SIG_DFL);
     signal(SIGTTOU, SIG_DFL);
     signal(SIGCHLD, SIG_DFL);
-
-    setpgid(0, pgid ? pgid : getpid());
 
     if (input != STDIN_FILENO) {
       dup2(input, STDIN_FILENO);
@@ -175,7 +182,9 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
       close(output);
     }
 
+    sigprocmask(SIG_SETMASK, mask, NULL);
     if (!bg) {
+
       int exitcode = 0;
       if ((exitcode = builtin_command(token)) >= 0)
         exit(exitcode);
@@ -260,6 +269,7 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
   MaybeClose(&input);
 
   if (!bg) {
+    setfgpgrp(pgid); // dajemy terminal procesowi
     exitcode = monitorjob(&mask);
   }
   // else msg("[%d] running '%s'\n", j,jobs[i].command);

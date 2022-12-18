@@ -29,14 +29,15 @@ static void sigchld_handler(int sig) {
 #ifdef STUDENT
   (void)status;
   (void)pid;
-  pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
-  if (pid <= 0)
-    return;
-  /* do {
-     pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
-   } while (pid == 0);*/
+  // pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
 
-  // fprintf(stderr,"%d: ",pid);
+  do {
+    pid = waitpid(-1, &status, WNOHANG | WUNTRACED | WCONTINUED);
+    // fprintf(stderr,"%d: ",pid);
+  } while (pid == 0);
+  if (pid < 0)
+    return;
+
   for (int i = 0; i < njobmax; ++i) {
     int j = 0;
     for (; j < jobs[i].nproc; ++j) {
@@ -55,12 +56,12 @@ static void sigchld_handler(int sig) {
             break;
           jobs[i].state = STOPPED;
           tcgetattr(tty_fd, &jobs[i].tmodes);
+        } else if (WIFCONTINUED(status)) {
+          jobs[i].proc[j].state = RUNNING;
         }
         break;
       }
     }
-    // fprintf(stderr,"%d %d???\n",j, jobs[i].nproc);
-    fflush(stderr);
     if (j != jobs[i].nproc)
       break;
   }
@@ -185,7 +186,7 @@ bool resumejob(int j, int bg, sigset_t *mask) {
     deljob(&jobs[0]);
     movejob(j, 0);
     j = 0;
-    //setfgpgrp(jobs[j].pgid);
+    setfgpgrp(jobs[j].pgid);
     tcsetattr(tty_fd, TCSANOW, &jobs[j].tmodes);
   }
   for (int i = 0; i < jobs[j].nproc; ++i)
@@ -212,7 +213,7 @@ bool killjob(int j) {
 #ifdef STUDENT
   kill(-jobs[j].pgid, SIGCONT);
   kill(-jobs[j].pgid, SIGTERM);
-  //jobs[j].state=FINISHED;
+  // jobs[j].state=FINISHED;
 //  for (int i = 0; i < jobs[j].nproc; ++i) jobs[j].proc[i].state=FINISHED;
 #endif /* !STUDENT */
 
@@ -229,7 +230,7 @@ void watchjobs(int which) {
 #ifdef STUDENT
     int exitcode = -1;
     int status = jobstate(j, &exitcode);
-    
+
     switch (status) {
       case RUNNING:
         if (which == RUNNING || which == ALL) {
@@ -243,16 +244,16 @@ void watchjobs(int which) {
         break;
       case FINISHED:
         if (which == FINISHED || which == ALL) {
-          
+
           if (WIFEXITED(exitcode)) {
             msg("[%d] exited '%s', status=%d\n", j, jobs[j].command,
                 WEXITSTATUS(exitcode));
-          }
-          else if (WIFSIGNALED(exitcode)) {
+          } else if (WIFSIGNALED(exitcode)) {
             msg("[%d] killed '%s' by signal %d\n", j, jobs[j].command,
                 WTERMSIG(exitcode));
-          }
-          else fprintf(stderr,"%d - WTF?!\n", exitcode);
+          } else
+            fprintf(stderr, "%d - WTF?!\n",
+                    exitcode); // do wywalenia, nie powinno sie nigdy zdarzyc
           deljob(&jobs[j]);
           break;
         }
@@ -269,18 +270,15 @@ int monitorjob(sigset_t *mask) {
 
   /* TODO: Following code requires use of Tcsetpgrp of tty_fd. */
 #ifdef STUDENT
-  setfgpgrp(jobs[0].pgid); //dajemy terminal procesowi
-  
-  sigsuspend(mask); //obsługujemy sygnały, które dotarły wcześniej
-  sigprocmask(SIG_SETMASK, mask, NULL);
-  
+  state = jobstate(0, &exitcode);
   // fprintf(stderr,"%d?!\n",state);
-  do {// czekamy, aż proces z foregroundu się skończy
-    // fprintf(stderr,"%d?!\n",state);
+  while (state == RUNNING) { // czekamy, aż proces z foregroundu się skończy
+                             // fprintf(stderr,"%d?!\n",state);
+    sigsuspend(mask);        // obsługujemy sygnały
     state = jobstate(0, &exitcode);
-  } while (state == RUNNING);
+  }
   if (state == STOPPED)
-      movejob(0, allocjob());
+    movejob(0, allocjob());
 
   setfgpgrp(getpgrp()); // przywracamy terminal i jego termios
   Tcsetattr(tty_fd, TCSANOW, &shell_tmodes);
@@ -329,12 +327,11 @@ void shutdownjobs(void) {
 #ifdef STUDENT
   for (int j = 0; j < njobmax; ++j) {
     killjob(j);
-    jobs[j].state=FINISHED;
-    for (int i = 0; i < jobs[j].nproc; ++i){
-      waitpid(jobs[j].proc[i].pid, &jobs[j].proc[i].exitcode,0);
-      jobs[j].proc[i].state=FINISHED;
+    jobs[j].state = FINISHED;
+    for (int i = 0; i < jobs[j].nproc; ++i) {
+      waitpid(jobs[j].proc[i].pid, &jobs[j].proc[i].exitcode, 0);
+      jobs[j].proc[i].state = FINISHED;
     }
-      
   }
 #endif /* !STUDENT */
 
