@@ -33,34 +33,37 @@ static void sigchld_handler(int sig) {
 
   do {
     pid = waitpid(-1, &status, WNOHANG | WUNTRACED | WCONTINUED);
+    int state = RUNNING;
+    if (WIFEXITED(status) || WIFSIGNALED(status))
+      state = FINISHED;
+    else if (WIFSTOPPED(status))
+      state = STOPPED;
+    else if (WIFCONTINUED(status))
+      state = RUNNING;
     for (int i = 0; i < njobmax; ++i) {
-      int j = 0;
-      for (; j < jobs[i].nproc; ++j) {
+      bool found = false;
+      bool all = true; // czy wszystkie procesy w jobie maja taki sam stan
+      for (int j = 0; j < jobs[i].nproc; ++j) {
         if (jobs[i].proc[j].pid == pid) {
-          if (WIFEXITED(status) || WIFSIGNALED(status)) {
-            jobs[i].proc[j].state = FINISHED;
-
-            if (j + 1 != jobs[i].nproc)
-              break;
-            jobs[i].state = FINISHED;
+          found = true;
+          jobs[i].proc[j].state = state;
+          if (state == FINISHED) {
             jobs[i].proc[j].exitcode = status;
-          } else if (WIFSTOPPED(status)) {
-            jobs[i].proc[j].state = STOPPED;
 
-            if (j + 1 != jobs[i].nproc)
-              break;
-            jobs[i].state = STOPPED;
+          } else if (state == STOPPED) {
             tcgetattr(tty_fd, &jobs[i].tmodes);
-          } else if (WIFCONTINUED(status)) {
-            jobs[i].proc[j].state = RUNNING;
           }
-          break;
-        }
+        } else if (jobs[i].proc[j].state != state)
+          all = false;
       }
-      if (j != jobs[i].nproc)
+
+      if (found) {
+        if (all)
+          jobs[i].state = state; // job zmienia stan, gdy wszystkie jego procesy
+                                 // maja nowy stan
         break;
+      }
     }
-    // fprintf(stderr,"%d: ",pid);
   } while (pid > 0);
 
 #endif /* !STUDENT */
@@ -185,7 +188,7 @@ bool resumejob(int j, int bg, sigset_t *mask) {
     movejob(j, 0);
     j = 0;
     setfgpgrp(jobs[j].pgid);
-    tcsetattr(tty_fd, TCSANOW, &jobs[j].tmodes);
+    tcsetattr(tty_fd, TCSANOW, &jobs[j].tmodes); // przywracamy termios joba
   }
   for (int i = 0; i < jobs[j].nproc; ++i)
     jobs[j].proc[i].state = RUNNING;
@@ -269,7 +272,7 @@ int monitorjob(sigset_t *mask) {
 
   /* TODO: Following code requires use of Tcsetpgrp of tty_fd. */
 #ifdef STUDENT
-  sigprocmask(SIG_SETMASK, mask, NULL);
+  // sigprocmask(SIG_SETMASK, mask, NULL);
 
   state = jobstate(0, &exitcode);
   // fprintf(stderr,"%d?!\n",state);

@@ -46,17 +46,18 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
           app_error("Failed to open a file: file %s, line %d", __FILE__,
                     __LINE__);
 
-        *inputp = fd; // 0 zostanie wczesniej zamkniety, bo tak dziala dup2
+        *inputp = fd; // oryginalny stdin zostanie wczesniej zamkniety, bo tak
+                      // dziala dup2
       } else if (mode == T_OUTPUT) {
         fd = open(token[i], O_WRONLY | O_CREAT | O_TRUNC,
                   S_IRUSR | S_IWUSR | S_IRGRP |
                     S_IROTH); // takie bity ustawiaja plikowi zsh i bash u mnie
-                              // (to be changed?)
+
         if (fd < 0)
           app_error("Failed to open a file: file %s, line %d", __FILE__,
                     __LINE__);
 
-        *outputp = fd;
+        *outputp = fd; // jak powyzej
       }
 
     } else
@@ -97,7 +98,8 @@ static int do_job(token_t *token, int ntokens, bool bg) {
     int j = addjob(pid, bg);
     addproc(j, pid, token);
     if (!bg) {
-      setfgpgrp(pid); // dajemy terminal procesowi
+      setfgpgrp(pid); // dajemy terminal procesowi i w rodzicu, i w dziecku (by
+                      // uniknac race conditions)
       exitcode = monitorjob(&mask);
     } else {
       char *cmd;
@@ -121,7 +123,8 @@ static int do_job(token_t *token, int ntokens, bool bg) {
   } else {
     setpgid(0, 0);
     if (!bg)
-      setfgpgrp(getpgrp()); // dajemy terminal procesowi
+      setfgpgrp(getpgrp()); // dajemy terminal procesowi, gdy jeszcze nie uwala
+                            // go sygnaly
 
     signal(SIGINT, SIG_DFL);
     signal(SIGQUIT, SIG_DFL);
@@ -138,7 +141,9 @@ static int do_job(token_t *token, int ntokens, bool bg) {
       dup2(output, STDOUT_FILENO);
       close(output);
     }
-    sigprocmask(SIG_SETMASK, &mask, NULL);
+    sigprocmask(
+      SIG_SETMASK, &mask,
+      NULL); // maska sygnalow jest dziedziczona przy execve, resetujemy ja
     external_command(token);
     app_error("execve failed: file %s, line %d", __FILE__, __LINE__);
   }
@@ -164,7 +169,8 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
     app_error("fork failed: file %s, line %d", __FILE__, __LINE__);
   else if (pid == 0) {
     setpgid(0, pgid ? pgid : getpid());
-    setfgpgrp(getpgrp()); // dajemy terminal procesowi
+    if (!bg)
+      setfgpgrp(getpgrp()); // dajemy terminal procesowi
 
     signal(SIGINT, SIG_DFL);
     signal(SIGQUIT, SIG_DFL);
